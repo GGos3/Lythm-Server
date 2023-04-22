@@ -27,7 +27,7 @@ public class ServerCommendLineRunner implements CommandLineRunner {
         return client -> {
             String token = client.getHandshakeData().getSingleUrlParam("token");
             if (token != null && token.contains("UNITY")) {
-                log.info("[Connect]={}", client.getSessionId());
+                log.info("[connection] SessionID={}", client.getSessionId());
                 client.sendEvent("connection", new HashMap<String, Object>() {{
                     put("date", new Date().getTime());
                     put("data", "Hello, Unity");
