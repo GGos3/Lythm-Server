@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class SocketModule {
+public class RoomEventHandler {
 
     private final SocketIOServer server;
     private final Map<String, RoomInfo> createdRooms = new ConcurrentHashMap<>();
@@ -60,7 +60,7 @@ public class SocketModule {
 
         client.joinRoom(code);
         log.info("Working: [joinRooms] {} -> {}", sessionId, code);
-        List<Player> playersOnRoom = joinRoom(client, code);
+        List<Player> playersOnRoom = getPlayerOnRoom(client, code);
         RoomInfo roomInfo = createdRooms.get(code);
 
         roomInfo.setCurPlayer(playersOnRoom.size());
@@ -70,20 +70,54 @@ public class SocketModule {
         roomInfoUpdate(client, code, roomInfo);
     }
 
+    @OnEvent("leaveRoom")
+    public void onLeaveRoom(SocketIOClient client, String code) {
+        String sessionId = client.getSessionId().toString();
+
+        if (code == null)
+            log.error("Error: [leaveRoom] cannot leave room code is null {}", sessionId);
+
+        log.info("Working: [leaveRoom] {} -> {}", sessionId, code);
+        client.leaveRoom(code);
+        client.sendEvent("leaveRoomSuccess", new HashMap<String, Object>() {{put("date", new Date().getTime());put("code", code);}});
+        clientHasOwner(client, code, sessionId);
+    }
+
+    private void clientHasOwner(SocketIOClient client, String code, String sessionId) {
+        Collection<SocketIOClient> clients = client.getNamespace().getRoomOperations(code).getClients();
+
+        if (clients.isEmpty())
+            createdRooms.remove(code);
+        else {
+            List<Player> playerOnRoom = getPlayerOnRoom(client, code);
+            RoomInfo roomInfo = createdRooms.get(code);
+
+            roomInfo.setCurPlayer(playerOnRoom.size());
+            roomInfo.setPlayers(playerOnRoom);
+
+            if (roomInfo.getOwnerSocketId().contains(sessionId))
+                roomInfo.setOwnerSocketId(randomValueFromArray(roomInfo.getPlayers()).getSocketId());
+            createdRooms.put(code, roomInfo);
+
+            roomInfoUpdate(client, code, roomInfo);
+        }
+    }
+
     public RoomInfo createRoom(SocketIOClient client, String levelCode, String sessionId, String code) {
-        List<Player> playersOnRoom = joinRoom(client, code);
+        List<Player> playersOnRoom = getPlayerOnRoom(client, code);
 
         RoomInfo roomInfo = new RoomInfo(levelCode, sessionId, playersOnRoom.size(),8, code, playersOnRoom);
         createdRooms.put(code, roomInfo);
         return roomInfo;
     }
 
-    private List<Player> joinRoom(SocketIOClient client, String code) {
+    private List<Player> getPlayerOnRoom(SocketIOClient client, String code) {
         Collection<SocketIOClient> clients = client.getNamespace().getRoomOperations(code).getClients();
         List<Player> playersOnRoom = new ArrayList<>();
 
         client.joinRoom(code);
         clients.iterator().forEachRemaining(a -> playersOnRoom.add(new Player(a.getSessionId().toString())));
+
         return playersOnRoom;
     }
 
@@ -103,11 +137,21 @@ public class SocketModule {
         }});
     }
 
-    public int createRandNum(int min, int max) {
+    public Map<String, RoomInfo> getCreatedRooms() {
+        return createdRooms;
+    }
+
+    private Player randomValueFromArray(List<Player> players) {
+        Random rand = new Random();
+        int randomIndex = rand.nextInt(players.size());
+        return players.get(randomIndex);
+    }
+
+    private int createRandNum(int min, int max) {
         return ThreadLocalRandom.current().nextInt(min, max + 1);
     }
 
-    public String fillZero(int width, String str) {
+    private String fillZero(int width, String str) {
         return String.format("%0" + width + "d", Integer.parseInt(str));
     }
 }
