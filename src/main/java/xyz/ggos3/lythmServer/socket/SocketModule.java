@@ -47,16 +47,44 @@ public class SocketModule {
         roomInfoUpdate(client, code, roomInfo);
     }
 
+    @OnEvent("joinRoom")
+    public void onJoinRoom(SocketIOClient client, String code) {
+        String sessionId = client.getSessionId().toString();
+        boolean hasRoom = client.getAllRooms().contains(code);
+
+        if (!hasRoom) {
+            log.info("Fail: [joinRoom] {} -> There is no room match with code {}", sessionId, code);
+            client.sendEvent("roomJoinError", new HashMap<String, Object>() {{put("date", new Date().getTime());put("code", code);}});
+            return;
+        }
+
+        client.joinRoom(code);
+        log.info("Working: [joinRooms] {} -> {}", sessionId, code);
+        List<Player> playersOnRoom = joinRoom(client, code);
+        RoomInfo roomInfo = createdRooms.get(code);
+
+        roomInfo.setCurPlayer(playersOnRoom.size());
+        roomInfo.setPlayers(playersOnRoom);
+        createdRooms.put(code, roomInfo);
+
+        roomInfoUpdate(client, code, roomInfo);
+    }
+
     public RoomInfo createRoom(SocketIOClient client, String levelCode, String sessionId, String code) {
+        List<Player> playersOnRoom = joinRoom(client, code);
+
+        RoomInfo roomInfo = new RoomInfo(levelCode, sessionId, playersOnRoom.size(),8, code, playersOnRoom);
+        createdRooms.put(code, roomInfo);
+        return roomInfo;
+    }
+
+    private List<Player> joinRoom(SocketIOClient client, String code) {
         Collection<SocketIOClient> clients = client.getNamespace().getRoomOperations(code).getClients();
         List<Player> playersOnRoom = new ArrayList<>();
 
         client.joinRoom(code);
         clients.iterator().forEachRemaining(a -> playersOnRoom.add(new Player(a.getSessionId().toString())));
-
-        RoomInfo roomInfo = new RoomInfo(levelCode, sessionId, playersOnRoom.size(),8, code, playersOnRoom);
-        createdRooms.put(code, roomInfo);
-        return roomInfo;
+        return playersOnRoom;
     }
 
     public String createUniqueCode(SocketIOClient client) {
@@ -74,7 +102,6 @@ public class SocketModule {
             put("room", roomInfo);
         }});
     }
-
 
     public int createRandNum(int min, int max) {
         return ThreadLocalRandom.current().nextInt(min, max + 1);
