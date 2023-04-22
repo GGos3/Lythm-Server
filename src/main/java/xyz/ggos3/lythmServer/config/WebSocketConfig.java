@@ -3,10 +3,13 @@ package xyz.ggos3.lythmServer.config;
 import com.corundumstudio.socketio.SocketIOServer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import xyz.ggos3.lythmServer.socket.RoomEventHandler;
 
 
 @Configuration
+@ComponentScan
 public class WebSocketConfig {
     @Value("${socket-server.host}")
     private String host;
@@ -15,12 +18,15 @@ public class WebSocketConfig {
     private int port;
 
     @Bean
-    public SocketIOServer socketIOServer() {
+    public SocketIOServer socketIOServer(RoomEventHandler roomEventHandler) {
         com.corundumstudio.socketio.Configuration config = new com.corundumstudio.socketio.Configuration();
         config.setHostname(host);
         config.setPort(port);
         config.setPingTimeout(5000); // 5초
-        return new SocketIOServer(config);
+        SocketIOServer server = new SocketIOServer(config);
+        server.addListeners(roomEventHandler);
+        server.start();
+        return server;
     }
 }
 
