@@ -83,6 +83,21 @@ public class RoomEventHandler {
         clientHasOwner(client, code, sessionId);
     }
 
+    @OnEvent("disconnecting")
+    public void onDisconnecting(SocketIOClient client, String reason) {
+        String sessionId = client.getSessionId().toString();
+
+        log.info("[disconnect] {}", sessionId);
+
+        client.getAllRooms().stream()
+                .filter(room -> !Objects.equals(room, sessionId))
+                .forEach(room -> {
+                    log.info("Emit: [roomUserLeft] {} -> {}", sessionId, room);
+                    client.leaveRoom(room);
+                    clientHasOwner(client, room, sessionId);
+                });
+    }
+
     private void clientHasOwner(SocketIOClient client, String code, String sessionId) {
         Collection<SocketIOClient> clients = client.getNamespace().getRoomOperations(code).getClients();
 
