@@ -7,4 +7,8 @@ public class Player {
     String socketID;
     Long score = 0L;
     String state = "NotReady";
+
+    public Player(String socketID) {
+        this.socketID = socketID;
+    }
 }
