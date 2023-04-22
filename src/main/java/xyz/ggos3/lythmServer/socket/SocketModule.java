@@ -22,59 +22,50 @@ public class SocketModule {
     private final Map<String, RoomInfo> createdRooms = new ConcurrentHashMap<>();
 
     @OnEvent("createRoom")
-    public void createRoom(SocketIOClient client, String roomCode, String levelCode) {
+    public void onCreateRoom(SocketIOClient client, String roomCode, String levelCode) {
         String sessionId = client.getSessionId().toString();
-        log.info("Request: [CreateRoom] {} -> {}", sessionId, roomCode);
         String code = roomCode;
-        if ("-1".equals(code)) {
-            do {
-                int randNum = createRandNum(1, 99999);
-                code = fillZero(6, String.valueOf(randNum));
-            } while (client.getAllRooms().contains(code));
 
-            log.info("Working: [createRoom] {} -> {}", client.getSessionId(), roomCode);
+        log.info("Request: [CreateRoom] {} -> {}", sessionId, code);
 
-            RoomInfo roomInfo = new RoomInfo("", levelCode, "", 8, code);
-
-            client.joinRoom(code);
-            Collection<SocketIOClient> clients = client.getNamespace().getRoomOperations(code).getClients();
-            List<Player> playersOnRoom = new ArrayList<>();
-            for (SocketIOClient socketIOClient : clients) {
-                playersOnRoom.add(new Player(socketIOClient.getSessionId().toString()));
-            }
-
-            roomInfo.setOwnerSocketId(sessionId);
-            roomInfo.setCurPlayer(playersOnRoom.size());
-            roomInfo.setPlayers(playersOnRoom);
-            createdRooms.put(code, roomInfo);
-            roomInfoUpdate(client, code, roomInfo);
-        } else {
-            code = fillZero(6, code);
-            if (client.getAllRooms().contains(code)) {
-                log.info("Fail [createRoom] {} -> {} is already created", sessionId, code);
-                String finalCode = code;
-                client.sendEvent("roomCreateError", new HashMap<String, Object>() {{
-                    put("date", new Date().getTime());
-                    put("code", finalCode);
-                }});
-            } else {
-                System.out.println("Working: [createRoom] " + sessionId + " -> " + code);
-                client.joinRoom(code);
-                Collection<SocketIOClient> clients = client.getNamespace().getRoomOperations(code).getClients();
-                List<Player> playersOnRoom = new ArrayList<>();
-                for (SocketIOClient socketIOClient : clients) {
-                    playersOnRoom.add(new Player(socketIOClient.getSessionId().toString()));
-                }
-                RoomInfo roomInfo = new RoomInfo("", levelCode, "", 8, code);
-                roomInfo.setOwnerSocketId(sessionId);
-                roomInfo.setCurPlayer(playersOnRoom.size());
-                roomInfo.setPlayers(playersOnRoom);
-                createdRooms.put(code, roomInfo);
-
-                roomInfoUpdate(client, code, roomInfo);
-            }
+        if (code.contains("-1")) {
+            code = createUniqueCode(client);
+            log.info("Working: [createRoom] {} -> {}", client.getSessionId(), code);
         }
 
+        code = fillZero(6, code);
+
+        if (client.getAllRooms().contains(code)) {
+            log.info("Fail [createRoom] {} -> {} is already created", sessionId, code);
+            String finalCode = code;
+            client.sendEvent("roomCreateError", new HashMap<String, Object>() {{put("date", new Date().getTime());put("code", finalCode);}});
+        } else {
+            log.info("Working: [createRoom] {} -> {}", sessionId, code);
+        }
+
+        RoomInfo roomInfo = createRoom(client, levelCode, sessionId, code);
+        roomInfoUpdate(client, code, roomInfo);
+    }
+
+    public RoomInfo createRoom(SocketIOClient client, String levelCode, String sessionId, String code) {
+        Collection<SocketIOClient> clients = client.getNamespace().getRoomOperations(code).getClients();
+        List<Player> playersOnRoom = new ArrayList<>();
+
+        client.joinRoom(code);
+        clients.iterator().forEachRemaining(a -> playersOnRoom.add(new Player(a.getSessionId().toString())));
+
+        RoomInfo roomInfo = new RoomInfo(levelCode, sessionId, playersOnRoom.size(),8, code, playersOnRoom);
+        createdRooms.put(code, roomInfo);
+        return roomInfo;
+    }
+
+    public String createUniqueCode(SocketIOClient client) {
+        String code;
+        do {
+            int randNum = createRandNum(1, 99999);
+            code = fillZero(6, String.valueOf(randNum));
+        } while (client.getAllRooms().contains(code));
+        return code;
     }
 
     public void roomInfoUpdate(SocketIOClient client, String code, RoomInfo roomInfo) {
@@ -90,11 +81,7 @@ public class SocketModule {
     }
 
     public String fillZero(int width, String str) {
-        StringBuilder sb = new StringBuilder(str);
-        while (sb.length() < width) {
-            sb.insert(0, '0');
-        }
-        return sb.toString();
+        return String.format("%0" + width + "d", Integer.parseInt(str));
     }
 }
 
