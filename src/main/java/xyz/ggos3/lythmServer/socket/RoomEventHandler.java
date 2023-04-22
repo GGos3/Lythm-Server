@@ -2,10 +2,12 @@ package xyz.ggos3.lythmServer.socket;
 
 import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
+import com.corundumstudio.socketio.annotation.OnConnect;
 import com.corundumstudio.socketio.annotation.OnEvent;
 import io.netty.util.internal.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import xyz.ggos3.lythmServer.domain.Player;
 import xyz.ggos3.lythmServer.domain.RoomInfo;
@@ -17,14 +19,27 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 @RequiredArgsConstructor
 public class RoomEventHandler {
-
-    private final SocketIOServer server;
     private final Map<String, RoomInfo> createdRooms = new ConcurrentHashMap<>();
 
-    @OnEvent("createRoom")
-    public void onCreateRoom(SocketIOClient client, String roomCode, String levelCode) {
+    @OnConnect
+    public void onConnect(SocketIOClient client) {
+        String token = client.getHandshakeData().getSingleUrlParam("token");
+        if (token != null && token.contains("UNITY")) {
+            log.info("[connection] SessionID={}", client.getSessionId());
+            client.sendEvent("connection", new HashMap<String, Object>() {{
+                put("date", new Date().getTime());
+                put("data", "Hello, Unity");
+            }});
+        } else {
+            String errorMessage = "Authentication error: invalid token";
+            client.sendEvent("error", errorMessage);
+            client.disconnect();
+        }
+    }
+
+    @OnEvent(value = "createRoom")
+    public void onCreateRoom(SocketIOClient client, String code, String levelCode) {
         String sessionId = client.getSessionId().toString();
-        String code = roomCode;
 
         log.info("Request: [CreateRoom] {} -> {}", sessionId, code);
 
@@ -47,7 +62,7 @@ public class RoomEventHandler {
         roomInfoUpdate(client, code, roomInfo);
     }
 
-    @OnEvent("joinRoom")
+    @OnEvent(value = "joinRoom")
     public void onJoinRoom(SocketIOClient client, String code) {
         String sessionId = client.getSessionId().toString();
         boolean hasRoom = client.getAllRooms().contains(code);
@@ -70,7 +85,7 @@ public class RoomEventHandler {
         roomInfoUpdate(client, code, roomInfo);
     }
 
-    @OnEvent("leaveRoom")
+    @OnEvent(value = "leaveRoom")
     public void onLeaveRoom(SocketIOClient client, String code) {
         String sessionId = client.getSessionId().toString();
 
@@ -83,7 +98,7 @@ public class RoomEventHandler {
         clientHasOwner(client, code, sessionId);
     }
 
-    @OnEvent("disconnecting")
+    @OnEvent(value = "disconnecting")
     public void onDisconnecting(SocketIOClient client, String reason) {
         String sessionId = client.getSessionId().toString();
 
