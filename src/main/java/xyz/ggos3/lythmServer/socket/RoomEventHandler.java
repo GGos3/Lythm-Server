@@ -87,7 +87,7 @@ public class RoomEventHandler {
     public void onDisconnecting(SocketIOClient client, String reason) {
         String sessionId = client.getSessionId().toString();
 
-        log.info("[disconnect] {}", sessionId);
+        log.info("[disconnect] {} reason {} ", sessionId, reason);
 
         client.getAllRooms().stream()
                 .filter(room -> !Objects.equals(room, sessionId))
