@@ -9,12 +9,12 @@ public class RoomInfo {
     String name;
     String levelCode;
     String ownerSocketId;
-    String maxPlayer;
-    String curPlayer;
+    int maxPlayer;
+    int curPlayer;
     List<Player> players;
     String roomCode;
 
-    public RoomInfo(String name, String levelCode, String ownerSocketId, String maxPlayer, String roomCode) {
+    public RoomInfo(String name, String levelCode, String ownerSocketId, int maxPlayer, String roomCode) {
         this.name = name;
         this.levelCode = levelCode;
         this.ownerSocketId = ownerSocketId;
