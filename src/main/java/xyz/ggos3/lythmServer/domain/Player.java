@@ -4,11 +4,11 @@ import lombok.Data;
 
 @Data
 public class Player {
-    String socketID;
+    String socketId;
     Long score = 0L;
     String state = "NotReady";
 
-    public Player(String socketID) {
-        this.socketID = socketID;
+    public Player(String socketId) {
+        this.socketId = socketId;
     }
 }
