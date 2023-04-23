@@ -18,15 +18,13 @@ public class WebSocketConfig {
     private int port;
 
     @Bean
-    public SocketIOServer socketIOServer(RoomEventHandler roomEventHandler) {
+    public SocketIOServer socketIOServer() {
         com.corundumstudio.socketio.Configuration config = new com.corundumstudio.socketio.Configuration();
         config.setHostname(host);
         config.setPort(port);
         config.setPingTimeout(5000); // 5초
-        SocketIOServer server = new SocketIOServer(config);
-        server.addListeners(roomEventHandler);
-        server.start();
-        return server;
+        config.setOrigin("*");
+        return new SocketIOServer(config);
     }
 }
 
