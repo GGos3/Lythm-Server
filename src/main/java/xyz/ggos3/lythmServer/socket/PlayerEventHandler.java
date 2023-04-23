@@ -1,12 +1,15 @@
 package xyz.ggos3.lythmServer.socket;
 
 import com.corundumstudio.socketio.SocketIOClient;
+import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.annotation.OnEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import xyz.ggos3.lythmServer.domain.RoomInfo;
 import xyz.ggos3.lythmServer.service.RoomEventHandlerService;
 
+import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
@@ -15,10 +18,12 @@ import java.util.stream.IntStream;
 @Component
 public class PlayerEventHandler {
     private final RoomEventHandlerService service;
+    private final SocketIOServer server;
     private final Map<String, RoomInfo> createdRooms;
 
-    public PlayerEventHandler(RoomEventHandlerService service) {
+    public PlayerEventHandler(RoomEventHandlerService service, SocketIOServer server) {
         this.service = service;
+        this.server = server;
         createdRooms = service.getCreatedRooms();
     }
 
@@ -50,6 +55,19 @@ public class PlayerEventHandler {
 
         log.info("Working: [roomPlayerReady] cannot Player Ready {} -> {}", sessionId, code);
         updatePlayerState(client, code, "Ready");
+    }
+
+    @OnEvent("roomStartGame")
+    public void onRoomStartGame(SocketIOClient client, String code) {
+        UUID sessionId = client.getSessionId();
+
+        if (code == null) {
+            log.info("Errors: [roomStartGame] cannot Start Game Code is Null {}", sessionId);
+            return;
+        }
+
+        log.info("Working: [roomStartGame] {} -> {}", sessionId, code);
+        updateStateAndSendRoomUserToRoomStart(client, code);
     }
 
     @OnEvent("roomPlayerReadyCancel")
@@ -89,6 +107,34 @@ public class PlayerEventHandler {
 
         log.info("Working: [roomStartGamePlayerReady] {} -> {}", sessionId, code);
         updatePlayerState(client, code, "Playing");
+    }
+
+    @OnEvent("roomPlayerState")
+    public void onRoomPlayerState(SocketIOClient client, String code, String state) {
+        UUID sessionId = client.getSessionId();
+
+        if (code == null) {
+            log.info("Error: [roomPlayerState] cannot set state Code is Null {}", sessionId);
+        }
+
+        log.info("Working: [roomPlayerState] {} {} -> {}", state, sessionId, code);
+        updatePlayerState(client, code, state);
+    }
+
+    private void updateStateAndSendRoomUserToRoomStart(SocketIOClient client, String code) {
+        RoomInfo roomInfo = createdRooms.get(code);
+        roomInfo.getPlayers().stream()
+                .filter(p -> p.getState().equals("Ready"))
+                .findFirst()
+                .ifPresent(p -> p.setState("Loading"));
+
+        createdRooms.put(code, roomInfo);
+        service.roomInfoUpdate(client, code, roomInfo);
+        server.getRoomOperations(code).getClients()
+                .forEach(a -> a.sendEvent("roomStartGame", new HashMap<String, Object>() {{
+                    put("date", new Date().getTime());
+                    put("room", createdRooms.get(code));
+                }}));
     }
 
     private void updatePlayerState(SocketIOClient client, String code, String state) {
