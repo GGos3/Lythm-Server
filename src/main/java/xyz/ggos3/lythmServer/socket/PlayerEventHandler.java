@@ -4,12 +4,10 @@ import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.annotation.OnEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import xyz.ggos3.lythmServer.domain.Player;
 import xyz.ggos3.lythmServer.domain.RoomInfo;
 import xyz.ggos3.lythmServer.service.RoomEventHandlerService;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -52,6 +50,18 @@ public class PlayerEventHandler {
 
         log.info("Working: [roomPlayerReady] cannot Player Ready {} -> {}", sessionId, code);
         updatePlayerState(client, code, "Ready");
+    }
+
+    @OnEvent("roomPlayerReadyCancel")
+    public void onRoomPlayerReadyCancel(SocketIOClient client, String code) {
+        UUID sessionId = client.getSessionId();
+        if (code == null) {
+            log.info("Error: [roomPlayerReadyCancel] cannot Cancel Player Ready Code is Null {}", sessionId);
+            return;
+        }
+
+        log.info("Working: [roomPlayerReadyCancel] cannot Player Ready {} -> {}", sessionId, code);
+        updatePlayerState(client, code, "NotReady");
     }
 
     private void updatePlayerState(SocketIOClient client, String code, String state) {
