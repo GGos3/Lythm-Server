@@ -78,6 +78,19 @@ public class PlayerEventHandler {
         updateOwnerSocket(client, code, newOwner);
     }
 
+    @OnEvent("roomStartGamePlayerReady")
+    public void onRoomStartGamePlayerReady(SocketIOClient client, String code) {
+        UUID sessionId = client.getSessionId();
+
+        if (code == null) {
+            log.info("Error: [roomStartGamePlayerReady] {} -> {}", sessionId, code);
+            return;
+        }
+
+        log.info("Working: [roomStartGamePlayerReady] {} -> {}", sessionId, code);
+        updatePlayerState(client, code, "Playing");
+    }
+
     private void updatePlayerState(SocketIOClient client, String code, String state) {
         RoomInfo roomInfo = createdRooms.get(code);
         int index = IntStream.range(0, roomInfo.getPlayers().size())
