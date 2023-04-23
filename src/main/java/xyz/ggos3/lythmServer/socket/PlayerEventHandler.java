@@ -130,6 +130,10 @@ public class PlayerEventHandler {
             return;
         }
 
+        updatePlayerScore(client, roomCode, score, sessionId);
+    }
+
+    private void updatePlayerScore(SocketIOClient client, String roomCode, String score, UUID sessionId) {
         RoomInfo roomInfo = createdRooms.get(roomCode);
         if (roomInfo == null)
             return;
@@ -141,6 +145,28 @@ public class PlayerEventHandler {
 
         createdRooms.put(roomCode, roomInfo);
         service.roomInfoUpdate(client, roomCode, roomInfo);
+    }
+
+    @OnEvent("roomPlayerGameResult")
+    public void onRoomPlayerGameResult(SocketIOClient client, String rooCode, String result) {
+        UUID sessionId = client.getSessionId();
+        if (rooCode == null) {
+            log.info("Error: [roomPlayerGameResult] cannot get result {}", sessionId);
+            return;
+        }
+        sendRoomUserToResult(rooCode, result);
+    }
+
+    private void sendRoomUserToResult(String rooCode, String result) {
+        RoomInfo roomInfo = createdRooms.get(rooCode);
+        if (roomInfo == null)
+            return;
+
+        server.getRoomOperations(rooCode).getClients()
+                .forEach(a -> a.sendEvent("roomPlayerResult", new HashMap<String, Object>(){{
+                    put("date", new Date().getTime());
+                    put("resultJson", result);
+                }}));
     }
 
     private void updateStateAndSendRoomUserToRoomStart(SocketIOClient client, String code) {
