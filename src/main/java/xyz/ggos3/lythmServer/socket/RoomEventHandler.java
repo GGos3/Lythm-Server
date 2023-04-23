@@ -7,7 +7,6 @@ import com.corundumstudio.socketio.annotation.OnEvent;
 import io.netty.util.internal.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import xyz.ggos3.lythmServer.domain.Player;
 import xyz.ggos3.lythmServer.domain.RoomInfo;
@@ -19,6 +18,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 @RequiredArgsConstructor
 public class RoomEventHandler {
+
+    private final SocketIOServer server;
     private final Map<String, RoomInfo> createdRooms = new ConcurrentHashMap<>();
 
     @OnConnect
@@ -39,7 +40,7 @@ public class RoomEventHandler {
 
     @OnEvent(value = "createRoom")
     public void onCreateRoom(SocketIOClient client, String code, String levelCode) {
-        String sessionId = client.getSessionId().toString();
+        UUID sessionId = client.getSessionId();
 
         log.info("Request: [CreateRoom] {} -> {}", sessionId, code);
 
@@ -65,7 +66,7 @@ public class RoomEventHandler {
     @OnEvent(value = "joinRoom")
     public void onJoinRoom(SocketIOClient client, String code) {
         String sessionId = client.getSessionId().toString();
-        boolean hasRoom = client.getAllRooms().contains(code);
+        boolean hasRoom = createdRooms.containsKey(code);
 
         if (!hasRoom) {
             log.info("Fail: [joinRoom] {} -> There is no room match with code {}", sessionId, code);
@@ -125,7 +126,7 @@ public class RoomEventHandler {
             roomInfo.setCurPlayer(playerOnRoom.size());
             roomInfo.setPlayers(playerOnRoom);
 
-            if (roomInfo.getOwnerSocketId().contains(sessionId))
+            if (roomInfo.getOwnerSocketId().toString().contains(sessionId))
                 roomInfo.setOwnerSocketId(randomValueFromArray(roomInfo.getPlayers()).getSocketId());
             createdRooms.put(code, roomInfo);
 
@@ -133,7 +134,7 @@ public class RoomEventHandler {
         }
     }
 
-    public RoomInfo createRoom(SocketIOClient client, String levelCode, String sessionId, String code) {
+    public RoomInfo createRoom(SocketIOClient client, String levelCode, UUID sessionId, String code) {
         List<Player> playersOnRoom = getPlayerOnRoom(client, code);
 
         RoomInfo roomInfo = new RoomInfo(levelCode, sessionId, playersOnRoom.size(),8, code, playersOnRoom);
@@ -146,7 +147,7 @@ public class RoomEventHandler {
         List<Player> playersOnRoom = new ArrayList<>();
 
         client.joinRoom(code);
-        clients.iterator().forEachRemaining(a -> playersOnRoom.add(new Player(a.getSessionId().toString())));
+        clients.iterator().forEachRemaining(a -> playersOnRoom.add(new Player(a.getSessionId())));
 
         return playersOnRoom;
     }
@@ -161,10 +162,15 @@ public class RoomEventHandler {
     }
 
     public void roomInfoUpdate(SocketIOClient client, String code, RoomInfo roomInfo) {
-        client.sendEvent("roomUpdate", new HashMap<String, Object>() {{
-            put("date", new Date().getTime());
-            put("room", roomInfo);
-        }});
+        createdRooms.get(code).getPlayers().iterator().forEachRemaining(
+                player -> {
+                    SocketIOClient roomClient = server.getClient(player.getSocketId());
+                    roomClient.sendEvent("roomUpdate", new HashMap<String, Object>() {{
+                        put("date", new Date().getTime());
+                        put("room", roomInfo);
+                    }});
+                }
+        );
     }
 
     public Map<String, RoomInfo> getCreatedRooms() {
