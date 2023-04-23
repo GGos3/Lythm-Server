@@ -10,17 +10,22 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import xyz.ggos3.lythmServer.domain.Player;
 import xyz.ggos3.lythmServer.domain.RoomInfo;
+import xyz.ggos3.lythmServer.service.RoomEventHandlerService;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class RoomEventHandler {
 
-    private final SocketIOServer server;
-    private final Map<String, RoomInfo> createdRooms = new ConcurrentHashMap<>();
+    private final RoomEventHandlerService service;
+    private final Map<String, RoomInfo> createdRooms;
+
+    public RoomEventHandler(RoomEventHandlerService service) {
+        this.service = service;
+        this.createdRooms = service.getCreatedRooms();
+    }
 
     @OnConnect
     public void onConnect(SocketIOClient client) {
@@ -45,11 +50,10 @@ public class RoomEventHandler {
         log.info("Request: [CreateRoom] {} -> {}", sessionId, code);
 
         if (code.contains("-1")) {
-            code = createUniqueCode(client);
-            log.info("Working: [createRoom] {} -> {}", client.getSessionId(), code);
+            code = service.createUniqueCode(client);
         }
 
-        code = fillZero(6, code);
+        code = service.fillZero(6, code);
 
         if (client.getAllRooms().contains(code)) {
             log.info("Fail [createRoom] {} -> {} is already created", sessionId, code);
@@ -59,8 +63,8 @@ public class RoomEventHandler {
             log.info("Working: [createRoom] {} -> {}", sessionId, code);
         }
 
-        RoomInfo roomInfo = createRoom(client, levelCode, sessionId, code);
-        roomInfoUpdate(client, code, roomInfo);
+        RoomInfo roomInfo = service.createRoom(client, levelCode, sessionId, code);
+        service.roomInfoUpdate(client, code, roomInfo);
     }
 
     @OnEvent(value = "joinRoom")
@@ -76,14 +80,14 @@ public class RoomEventHandler {
 
         client.joinRoom(code);
         log.info("Working: [joinRooms] {} -> {}", sessionId, code);
-        List<Player> playersOnRoom = getPlayerOnRoom(client, code);
+        List<Player> playersOnRoom = service.getPlayerOnRoom(client, code);
         RoomInfo roomInfo = createdRooms.get(code);
 
         roomInfo.setCurPlayer(playersOnRoom.size());
         roomInfo.setPlayers(playersOnRoom);
         createdRooms.put(code, roomInfo);
 
-        roomInfoUpdate(client, code, roomInfo);
+        service.roomInfoUpdate(client, code, roomInfo);
     }
 
     @OnEvent(value = "leaveRoom")
@@ -96,7 +100,7 @@ public class RoomEventHandler {
         log.info("Working: [leaveRoom] {} -> {}", sessionId, code);
         client.leaveRoom(code);
         client.sendEvent("leaveRoomSuccess", new HashMap<String, Object>() {{put("date", new Date().getTime());put("code", code);}});
-        clientHasOwner(client, code, sessionId);
+        service.clientHasOwner(client, code, sessionId);
     }
 
     @OnEvent(value = "disconnecting")
@@ -110,85 +114,8 @@ public class RoomEventHandler {
                 .forEach(room -> {
                     log.info("Emit: [roomUserLeft] {} -> {}", sessionId, room);
                     client.leaveRoom(room);
-                    clientHasOwner(client, room, sessionId);
+                    service.clientHasOwner(client, room, sessionId);
                 });
-    }
-
-    private void clientHasOwner(SocketIOClient client, String code, String sessionId) {
-        Collection<SocketIOClient> clients = client.getNamespace().getRoomOperations(code).getClients();
-
-        if (clients.isEmpty())
-            createdRooms.remove(code);
-        else {
-            List<Player> playerOnRoom = getPlayerOnRoom(client, code);
-            RoomInfo roomInfo = createdRooms.get(code);
-
-            roomInfo.setCurPlayer(playerOnRoom.size());
-            roomInfo.setPlayers(playerOnRoom);
-
-            if (roomInfo.getOwnerSocketId().toString().contains(sessionId))
-                roomInfo.setOwnerSocketId(randomValueFromArray(roomInfo.getPlayers()).getSocketId());
-            createdRooms.put(code, roomInfo);
-
-            roomInfoUpdate(client, code, roomInfo);
-        }
-    }
-
-    public RoomInfo createRoom(SocketIOClient client, String levelCode, UUID sessionId, String code) {
-        List<Player> playersOnRoom = getPlayerOnRoom(client, code);
-
-        RoomInfo roomInfo = new RoomInfo(levelCode, sessionId, playersOnRoom.size(),8, code, playersOnRoom);
-        createdRooms.put(code, roomInfo);
-        return roomInfo;
-    }
-
-    private List<Player> getPlayerOnRoom(SocketIOClient client, String code) {
-        Collection<SocketIOClient> clients = client.getNamespace().getRoomOperations(code).getClients();
-        List<Player> playersOnRoom = new ArrayList<>();
-
-        client.joinRoom(code);
-        clients.iterator().forEachRemaining(a -> playersOnRoom.add(new Player(a.getSessionId())));
-
-        return playersOnRoom;
-    }
-
-    public String createUniqueCode(SocketIOClient client) {
-        String code;
-        do {
-            int randNum = createRandNum(1, 99999);
-            code = fillZero(6, String.valueOf(randNum));
-        } while (client.getAllRooms().contains(code));
-        return code;
-    }
-
-    public void roomInfoUpdate(SocketIOClient client, String code, RoomInfo roomInfo) {
-        createdRooms.get(code).getPlayers().iterator().forEachRemaining(
-                player -> {
-                    SocketIOClient roomClient = server.getClient(player.getSocketId());
-                    roomClient.sendEvent("roomUpdate", new HashMap<String, Object>() {{
-                        put("date", new Date().getTime());
-                        put("room", roomInfo);
-                    }});
-                }
-        );
-    }
-
-    public Map<String, RoomInfo> getCreatedRooms() {
-        return createdRooms;
-    }
-
-    private Player randomValueFromArray(List<Player> players) {
-        Random rand = new Random();
-        int randomIndex = rand.nextInt(players.size());
-        return players.get(randomIndex);
-    }
-
-    private int createRandNum(int min, int max) {
-        return ThreadLocalRandom.current().nextInt(min, max + 1);
-    }
-
-    private String fillZero(int width, String str) {
-        return String.format("%0" + width + "d", Integer.parseInt(str));
     }
 }
 
