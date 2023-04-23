@@ -64,6 +64,20 @@ public class PlayerEventHandler {
         updatePlayerState(client, code, "NotReady");
     }
 
+    @OnEvent("roomChangeOwner")
+    public void onRoomChangeOwner(SocketIOClient client, String code, UUID newOwner) {
+        UUID sessionId = client.getSessionId();
+
+        if (newOwner == null) {
+            log.info("Error: [roomChangeOwner] cannot ChangeOwner {} -> {}", sessionId, code);
+            return;
+        }
+
+        log.info("Working: [roomChangeOwner] {} -> {}", sessionId, code);
+
+        updateOwnerSocket(client, code, newOwner);
+    }
+
     private void updatePlayerState(SocketIOClient client, String code, String state) {
         RoomInfo roomInfo = createdRooms.get(code);
         int index = IntStream.range(0, roomInfo.getPlayers().size())
@@ -74,6 +88,14 @@ public class PlayerEventHandler {
         roomInfo.getPlayers().get(index).setState(state);
 
         createdRooms.put(code, roomInfo);
+        service.roomInfoUpdate(client, code, roomInfo);
+    }
+
+    private void updateOwnerSocket(SocketIOClient client, String code, UUID newOwner) {
+        RoomInfo roomInfo = createdRooms.get(code);
+        roomInfo.setOwnerSocketId(newOwner);
+        createdRooms.put(code, roomInfo);
+
         service.roomInfoUpdate(client, code, roomInfo);
     }
 }
