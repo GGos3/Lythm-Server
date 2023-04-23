@@ -57,19 +57,6 @@ public class PlayerEventHandler {
         updatePlayerState(client, code, "Ready");
     }
 
-    @OnEvent("roomStartGame")
-    public void onRoomStartGame(SocketIOClient client, String code) {
-        UUID sessionId = client.getSessionId();
-
-        if (code == null) {
-            log.info("Errors: [roomStartGame] cannot Start Game Code is Null {}", sessionId);
-            return;
-        }
-
-        log.info("Working: [roomStartGame] {} -> {}", sessionId, code);
-        updateStateAndSendRoomUserToRoomStart(client, code);
-    }
-
     @OnEvent("roomPlayerReadyCancel")
     public void onRoomPlayerReadyCancel(SocketIOClient client, String code) {
         UUID sessionId = client.getSessionId();
@@ -94,6 +81,19 @@ public class PlayerEventHandler {
         log.info("Working: [roomChangeOwner] {} -> {}", sessionId, code);
 
         updateOwnerSocket(client, code, newOwner);
+    }
+
+    @OnEvent("roomStartGame")
+    public void onRoomStartGame(SocketIOClient client, String code) {
+        UUID sessionId = client.getSessionId();
+
+        if (code == null) {
+            log.info("Errors: [roomStartGame] cannot Start Game Code is Null {}", sessionId);
+            return;
+        }
+
+        log.info("Working: [roomStartGame] {} -> {}", sessionId, code);
+        updateStateAndSendRoomUserToRoomStart(client, code);
     }
 
     @OnEvent("roomStartGamePlayerReady")
