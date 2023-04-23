@@ -133,6 +133,16 @@ public class PlayerEventHandler {
         updatePlayerScore(client, roomCode, score, sessionId);
     }
 
+    @OnEvent("roomPlayerGameResult")
+    public void onRoomPlayerGameResult(SocketIOClient client, String rooCode, String result) {
+        UUID sessionId = client.getSessionId();
+        if (rooCode == null) {
+            log.info("Error: [roomPlayerGameResult] cannot get result {}", sessionId);
+            return;
+        }
+        sendRoomUserToResult(rooCode, result);
+    }
+
     private void updatePlayerScore(SocketIOClient client, String roomCode, String score, UUID sessionId) {
         RoomInfo roomInfo = createdRooms.get(roomCode);
         if (roomInfo == null)
@@ -145,16 +155,6 @@ public class PlayerEventHandler {
 
         createdRooms.put(roomCode, roomInfo);
         service.roomInfoUpdate(client, roomCode, roomInfo);
-    }
-
-    @OnEvent("roomPlayerGameResult")
-    public void onRoomPlayerGameResult(SocketIOClient client, String rooCode, String result) {
-        UUID sessionId = client.getSessionId();
-        if (rooCode == null) {
-            log.info("Error: [roomPlayerGameResult] cannot get result {}", sessionId);
-            return;
-        }
-        sendRoomUserToResult(rooCode, result);
     }
 
     private void sendRoomUserToResult(String rooCode, String result) {
