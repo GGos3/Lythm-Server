@@ -121,6 +121,28 @@ public class PlayerEventHandler {
         updatePlayerState(client, code, state);
     }
 
+    @OnEvent("roomPlayerScoreUpdate")
+    public void onRoomPlayerScoreUpdate(SocketIOClient client, String roomCode, String score) {
+        UUID sessionId = client.getSessionId();
+
+        if (roomCode == null) {
+            log.info("Error: [roomPlayerScoreUpdate] cannot update score {} -> {}", score, sessionId);
+            return;
+        }
+
+        RoomInfo roomInfo = createdRooms.get(roomCode);
+        if (roomInfo == null)
+            return;
+
+        roomInfo.getPlayers().stream()
+                .filter(player -> player.getSocketId().equals(sessionId))
+                .findFirst()
+                .ifPresent(player -> player.setScore(Long.parseLong(score)));
+
+        createdRooms.put(roomCode, roomInfo);
+        service.roomInfoUpdate(client, roomCode, roomInfo);
+    }
+
     private void updateStateAndSendRoomUserToRoomStart(SocketIOClient client, String code) {
         RoomInfo roomInfo = createdRooms.get(code);
         roomInfo.getPlayers().stream()
