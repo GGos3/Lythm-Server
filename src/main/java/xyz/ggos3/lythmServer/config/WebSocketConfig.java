@@ -14,13 +14,13 @@ public class WebSocketConfig {
     private String host;
 
     @Value("${socket-server.port}")
-    private int port;
+    private String port;
 
     @Bean
     public SocketIOServer socketIOServer() {
         com.corundumstudio.socketio.Configuration config = new com.corundumstudio.socketio.Configuration();
         config.setHostname(host);
-        config.setPort(port);
+        config.setPort(Integer.parseInt(port));
         config.setPingTimeout(5000); // 5초
         config.setOrigin("*");
 
