@@ -18,15 +18,6 @@ public class WebSocketConfig {
     @Value("${socket-server.port}")
     private int port;
 
-    @Value("${socket-server.ssl.enabled}")
-    private boolean sslEnabled;
-
-    @Value("${socket-server.ssl.key-store}")
-    private String keyStorePath;
-
-    @Value("${socket-server.ssl.key-store-password}")
-    private String keyStorePassword;
-
     @Bean
     public SocketIOServer socketIOServer() {
         com.corundumstudio.socketio.Configuration config = new com.corundumstudio.socketio.Configuration();
@@ -34,12 +25,6 @@ public class WebSocketConfig {
         config.setPort(port);
         config.setPingTimeout(5000); // 5초
         config.setOrigin("*");
-
-        if (sslEnabled) {
-            config.setKeyStorePassword(keyStorePassword);
-            InputStream stream = getClass().getClassLoader().getResourceAsStream(keyStorePath);
-            config.setKeyStore(stream);
-        }
 
         return new SocketIOServer(config);
     }
