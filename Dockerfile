@@ -6,7 +6,7 @@ RUN ./gradlew bootJar
 
 FROM eclipse-temurin:latest
 ENV HOST=
-ENV PORT=8443
+ENV PORT=
 ENV SSL_ENABLED=
 ENV KEY_STORE_PATH=
 ENV KEY_STORE_PASSWORD=
