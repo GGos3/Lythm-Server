@@ -7,5 +7,5 @@ RUN ./gradlew bootJar
 FROM eclipse-temurin:latest
 ENV HOST=
 COPY --from=Builder /LythmServer/build/libs/*.jar LythmServer.jar
-EXPOSE $PORT
+EXPOSE 8443
 ENTRYPOINT ["java", "-jar", "-Dsocket-server.host=${HOST}", "/LythmServer.jar"]
